@@ -1,10 +1,11 @@
 # Plaid_api
-Step 1: pip install plaid
-step 2: manage.py runserver
+## Steps 
+1. pip install plaid
+2. manage.py runserver
 
 ### Server is running now
 
-#In web page
+## In web page
 ### UI may not be attractive , but it is only for the purpose of api integration 
 
 # Steps
