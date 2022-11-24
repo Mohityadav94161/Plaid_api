@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Plaid </title>
+    <link rel="stylesheet" type="text/css" href="static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        .main {
+
+            padding: 5px;
+            margin-left:100px;
+
+        }
+        .main div {
+            margin: 10px 20px;
+
+
+        }
+        .bank{
+            padding :2px;
+            border:solid 4px black;
+            color:red;
+            height:30px;
+            border-radius:10%;
+            width:180px;
+
+        }
+        .boxx .inner{
+            border : solid 2px black
+        }
+    </style>
+</head>
+<body>
+    <div id="banner" style="margin-left : 100px">
+        <h1>Plaid Assignment</h1>
+        <h3 id="intro">
+            Integrating Plaid Link using the API to retrieve Auth and Transaction data.
+        </h3>
+        <p id="steps">
+            The server was successfully able to exchange the public_token for an access_token.
+            Below are a few options -
+            <br/>
+            <strong>you can get</strong><br/> account data,<br/> retrieve information about the Item itself, <br/>pull transaction data.
+        </p>
+    </div>
+
+    <div id="container" style="margin-left : 100px">
+        <h3>
+            Click the button below to open a list of <strong>Banks</strong>  and select one
+        </h3>
+        <p>
+
+            Follow the  authentication process.<br/>Here<br/>
+            The public_token will be passed
+            back to the example server, which will then exchange it for an access_token and log it
+            to your console.
+        </p>
+        <h2>Step1 : Please select your bank , before proceed</h2>
+        <h3>
+            For sandbox mode use below username and password to test api
+            <br/>
+
+             <br/>
+            your username : user_good
+             <br/>
+            <br/>
+            password : pass_good
+             <br/>
+             <br/>
+        </h3>
+        <button id="link-btn" class="bank">Select Bank</button>
+    </div>
+
+    <div id="app" class = "main">
+
+        <h2>
+            After step 1
+        </h2>
+        <h3>
+            Note*: respose may be slow due to in sandbox mode
+        </h3>
+        <div class="box">
+            <button id="get-accounts-btn" style="border:solid 4px black;
+            color:red;
+            height:30px;
+            border-radius:10%;
+            width:180px;">Get Accounts</button>
+            <div id="get-accounts-data" class="boxx"></div>
+        </div>
+
+        <div class="box">
+            <button id="get-item-btn" style="border:solid 4px black;
+            color:red;
+            height:30px;
+            border-radius:10%;
+            width:180px;">Get Item</button>
+            <div id="upgrade-to-connect-data" class="inner"></div>
+        </div>
+
+        <div class="box" id="txnBox">
+            <button id="get-transaction-data" style="border:solid 4px black;
+            color:red;
+            height:30px;
+            border-radius:10%;
+            width:180px;">Get Transactions</button>
+            <div id="get-transactions-data" class="boxx"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.3/jquery.min.js"></script>
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+    {% csrf_token %}
+    <script>
+    var csrftoken = jQuery("[name=csrfmiddlewaretoken]").val();
+    function csrfSafeMethod(method) {
+        // these HTTP methods do not require CSRF protection
+        return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+    }
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", csrftoken);
+            }
+        }
+    });
+    function getParameterByName(name, url) {
+        if (!url) url = window.location.href;
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+    ;(function($) {
+        var handler = Plaid.create({
+            apiVersion: 'v2',
+            clientName: 'Plaid Walkthrough Demo',
+            env: '{{ plaid_environment }}',
+            product: ['transactions'],
+            key: '{{ plaid_public_key }}',
+            onSuccess: function(public_token) {
+                $.post('/get_access_token', {public_token: public_token}, function() {
+                    $('#container').fadeOut('fast', function() {
+                        $('#intro').hide();
+                        $('#app, #steps').fadeIn('slow');
+                    });
+                });
+            },
+        });
+
+        $('#link-btn').on('click', function(e) {
+            handler.open();
+        });
+
+        var accessToken =  getParameterByName('access_token');
+        if (accessToken != null) {
+            $.post('/set_access_token', {access_token: accessToken}, function() {
+                $('#container').fadeOut('fast', function() {
+                    $('#intro').hide();
+                    $('#app, #steps').fadeIn('slow');
+                });
+            });
+        }
+
+        $('#get-accounts-btn').on('click', function(e) {
+            $.get('/accounts', function(data) {
+                $('#get-accounts-data').slideUp(function() {
+                    var html = '';
+                    data.accounts.forEach(function(account, idx) {
+                        html += '<div class="inner">';
+                        html += '<strong>' + account.name +
+                                ' $' + (account.balances.available != null ? account.balances.available : account.balances.current) + '</strong><br>';
+                        html += account.subtype + ' ' + account.mask;
+                        html += '</div>';
+                    });
+
+                    $(this).html(html).slideDown();
+                });
+            });
+        });
+
+        $('#get-item-btn').on('click', function(e) {
+            $.post('/item', function(data) {
+                $('#upgrade-to-connect-data').slideUp(function() {
+                    if(data.error)
+                        $(this).html('<p>' + data.error + '</p>').slideDown();
+                    else {
+                        var html = '';
+                        html += '<p>Here\'s some basic information about your Item:</p>';
+                        html += '<p> <strong>Bank name:</strong>' + data.institution.name +'</p>';
+                        html += '<p><strong>Billed products:</strong> ' + data.item.billed_products.join(', ') + '</p>';
+                        html += '<p><strong>Available products:</strong> ' + data.item.available_products.join(', ') + '</p>';
+
+                        $(this).html(html).slideDown();
+                        $('#txnBox').slideDown();
+                    }
+                });
+            });
+        });
+
+        $('#get-transaction-data').on('click', function(e) {
+            $.post('/transactions', function(data) {
+                if (data.error) {
+                    $(this).html('<p>' + data.error + '</p>').slideDown();
+                } else {
+                $('#get-transactions-data').slideUp(function() {
+                    var html = '<p>Pulled ' + data.transactions.length + ' transaction(s).</p>';
+                    data.transactions.forEach(function(txn, idx) {
+                        html += '<div class="inner">';
+                        html += '<strong>' + txn.name + '</strong><br>';
+                        html += '$' + txn.amount;
+                        html += '<br><em>' + txn.date + '</em>';
+                        html += '</div>';
+                    });
+
+                    $(this).slideUp(function() {
+                        $(this).html(html).slideDown();
+                    });
+                });
+                }
+            });
+        });
+    })(jQuery);
+    </script>
+</body>
+</html>
